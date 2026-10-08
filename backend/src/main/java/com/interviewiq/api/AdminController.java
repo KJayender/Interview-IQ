@@ -1,0 +1,12 @@
+package com.interviewiq.api;
+import com.interviewiq.domain.*;import com.interviewiq.repository.*;import org.springframework.http.HttpStatus;import org.springframework.transaction.annotation.Transactional;import org.springframework.web.bind.annotation.*;import org.springframework.web.server.ResponseStatusException;import java.util.*;
+@RestController @RequestMapping("/api/admin") public class AdminController {
+ private final UserRepository users;private final QuestionRepository questions;private final AssessmentRepository assessments;
+ public AdminController(UserRepository u,QuestionRepository q,AssessmentRepository a){users=u;questions=q;assessments=a;}
+ @GetMapping("/stats") public Map<String,Object> stats(){var all=assessments.findAll();var scores=all.stream().map(Assessment::getScore).filter(Objects::nonNull).toList();return Map.of("users",users.count(),"assessments",all.size(),"questions",questions.count(),"completed",scores.size(),"averageScore",scores.stream().mapToInt(Integer::intValue).average().orElse(0));}
+ @GetMapping("/users") public List<UserRow> userRows(){return users.findAll().stream().map(u->new UserRow(u.getId(),u.getName(),u.getEmail(),u.getRole(),u.getTargetRole(),u.isEnabled())).toList();}
+ @PatchMapping("/users/{id}/enabled") @Transactional public UserRow enabled(@PathVariable Long id,@RequestBody EnabledRequest req){AppUser u=users.findById(id).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"User not found."));u.setEnabled(req.enabled());u=users.save(u);return new UserRow(u.getId(),u.getName(),u.getEmail(),u.getRole(),u.getTargetRole(),u.isEnabled());}
+ @GetMapping("/questions") public List<QuestionRow> questionRows(){return questions.findAll().stream().map(q->new QuestionRow(q.getId(),q.getPrompt(),q.getType(),q.getTopic(),q.getDifficulty(),q.isActive())).toList();}
+ @PatchMapping("/questions/{id}/enabled") @Transactional public QuestionRow questionEnabled(@PathVariable Long id,@RequestBody EnabledRequest req){Question q=questions.findById(id).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Question not found."));q.setActive(req.enabled());q=questions.save(q);return new QuestionRow(q.getId(),q.getPrompt(),q.getType(),q.getTopic(),q.getDifficulty(),q.isActive());}
+ public record EnabledRequest(boolean enabled){} public record UserRow(Long id,String name,String email,String role,String targetRole,boolean enabled){} public record QuestionRow(Long id,String question,String type,String topic,String difficulty,boolean active){}
+}
